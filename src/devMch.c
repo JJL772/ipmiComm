@@ -199,6 +199,8 @@
 #include <drvMchMsg.h>
 #include <devMch.h>
 
+#include "regConfig.h"
+
 extern uint32_t mchStat[MAX_MCH];
 
 /* Sensor scan period options (in seconds). Must match 
@@ -730,9 +732,11 @@ int      s = 0, inst;
 			if ( sdr->str )
 				strcpy( pai->desc, sdr->str );
 
-			if ( sdr->recType == SDR_TYPE_FULL_SENSOR )
+			if ( sdr->recType == SDR_TYPE_FULL_SENSOR ) {
 				sensThresh( sdr, sens, &pai->lolo, &pai->llsv, &pai->low, &pai->lsv, 
 					    &pai->high, &pai->hsv, &pai->hihi, &pai->hhsv, pai->name );
+				checkSensThresh(sdr, sens, pai);
+			}
 			sens->cnfg = 1;
 		}
 

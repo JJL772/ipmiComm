@@ -38,6 +38,10 @@ ipmicomm-test-IOC_SRCS_vxWorks += -nil-
 # Finally link to the EPICS Base libraries
 ipmicomm-test-IOC_LIBS += $(EPICS_BASE_IOC_LIBS)
 
+ifeq ($(USE_SYSTEM_YAMLCPP),YES)
+ipmicomm-test-IOC_SYS_LIBS += yaml-cpp
+endif
+
 #===========================
 
 include $(TOP)/configure/RULES

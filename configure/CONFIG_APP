@@ -23,3 +23,16 @@ DB_OPT = NO
 # BUILD_IOCS should be YES or commented out, so that like with any variable,
 # you can override on the command line with "make BUILD_IOCS=YES".
 #BUILD_IOCS=YES
+
+PKG_ARCH=$(T_A)
+
+ifeq ($(USE_SYSTEM_YAMLCPP),)
+YAML_PACKAGE_NAME=yaml-cpp
+YAML_VERSION=0.5.3
+YAML_TOP=$(PSPKG_ROOT)/release/$(YAML_PACKAGE_NAME)/$(YAML_VERSION)
+YAML_INCLUDE=$(YAML_TOP)/$(PKG_ARCH)/include
+YAML_LIBDIR=$(YAML_TOP)/$(PKG_ARCH)/lib
+YAML_LIB=yaml-cpp
+else
+YAML_INCLUDE=/usr/include/yaml-cpp
+endif
