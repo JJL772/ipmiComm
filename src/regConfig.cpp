@@ -1,5 +1,5 @@
 
-#include <unordered_map>
+//#include <unordered_map>
 #include <string>
 
 #include "regConfig.h"
@@ -35,20 +35,40 @@ boards:
 */
 
 typedef struct BoardReg_ {
+	std::string name;
 	epicsFloat64 lolo;
 	epicsFloat64 low;
 	epicsFloat64 high;
 	epicsFloat64 hihi;
 } BoardReg;
 
-typedef std::unordered_map<std::string, BoardReg> BoardRegMap;
+typedef std::vector<BoardReg> BoardRegMap;
 
 typedef struct BoardRegs_ {
+	std::string name;
 	BoardRegMap regs;
 } BoardRegs;
 
-typedef std::unordered_map<std::string, BoardRegs> BoardFirmwareValuesMap;
+
+typedef std::vector<BoardRegs*> BoardFirmwareValuesMap;
 static BoardFirmwareValuesMap boardFirmwareValues;
+
+static BoardRegs* findBoardRegs(const std::string& st) {
+	for (size_t i = 0; i < boardFirmwareValues.size(); ++i) {
+		if (boardFirmwareValues[i]->name == st)
+			return boardFirmwareValues[i];
+	}
+	return NULL;
+}
+
+static BoardReg* findBoardReg(BoardRegs* board, const std::string& st) {
+	for (size_t i = 0; i < board->regs.size(); ++i) {
+		if (board->regs[i].name == st)
+			return &board->regs[i];
+	}
+	return NULL;
+}
+
 
 static void parse_upper(YAML::Node node, BoardReg& reg);
 static void parse_lower(YAML::Node node, BoardReg& reg);
@@ -60,12 +80,12 @@ void regConfInit() {
 	#if HAVE_EMBEDDED_YAML
 		YAML::Load(s_boardConfigYaml);
 	#else
-		YAML::LoadFile(YAML_PATH);
+		YAML::LoadFile(yamlPath);
 	#endif
 	
 	if (!root)
 	{
-		epicsStdoutPrintf("Could not load '%s'\n", YAML_PATH);
+		epicsStdoutPrintf("Could not load '%s'\n", yamlPath);
 		return;
 	}
 
@@ -88,15 +108,19 @@ void regConfInit() {
 			BoardReg reg;
 			parse_upper(part->second["upper"], reg);
 			parse_lower(part->second["lower"], reg);
-			regs.regs.insert({part->second["name"].as<std::string>(), reg});
+			reg.name = part->second["name"].as<std::string>();
+			regs.regs.push_back(reg);
 		}
 
 		Node parts = board->second["parts"];
 		if (!parts || !parts.IsSequence())
 			continue;
 
-		for (Node::iterator part = parts.begin(); part != parts.end(); ++part)
-			boardFirmwareValues.insert({part->as<std::string>(), regs});
+		for (Node::iterator part = parts.begin(); part != parts.end(); ++part) {
+			BoardRegs* r = new BoardRegs(regs);
+			r->name = part->as<std::string>();
+			boardFirmwareValues.push_back(new BoardRegs(regs));
+		}
 	}
 }
 
@@ -139,18 +163,18 @@ void checkSensThresh(SdrFull fullSens, Sensor sens, aiRecord* pai) {
 		return;
 	}
 
-	BoardFirmwareValuesMap::iterator it = boardFirmwareValues.find((char*)fru->board.part.data);
-	if (it == boardFirmwareValues.end())
+	BoardRegs* it = findBoardRegs((char*)fru->board.part.data);
+	if (!it)
 		return;
 	
-	BoardRegMap::iterator regit = it->second.regs.find(fullSens->str);
-	if (regit == it->second.regs.end())
+	BoardReg* regit = findBoardReg(it, fullSens->str);
+	if (!regit)
 		return;
 
 	#define CHECK_SENS(_s) \
-		if (regit->second. _s != _s) \
+		if (regit-> _s != _s) \
 			epicsStdoutPrintf("WARNING: %s: Sensor %s %s mismatches expected value. Expected %lf, but got %lf from firmware. Probably needs an update!\n", pai->name, fullSens->str, \
-				#_s, regit->second. _s, _s)
+				#_s, regit-> _s, _s)
 
 	if (IPMI_SENSOR_THRESH_LC_READABLE(sens->tmask))
 		CHECK_SENS(lolo);
