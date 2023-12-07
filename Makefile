@@ -3,8 +3,8 @@ TOP = .
 include $(TOP)/configure/CONFIG
 # add directories, making sure they aren't in the list more than once
 DIRS := $(DIRS) $(filter-out $(DIRS), configure)
-DIRS := $(DIRS) $(filter-out $(DIRS), src)
 DIRS := $(DIRS) $(filter-out $(DIRS), Db)
+DIRS := $(DIRS) $(filter-out $(DIRS), src)
 ifeq ($(BUILD_IOCS), YES)
 # BUILDS_IOCS is defined in configure/CONFIG_APP
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard iocs))

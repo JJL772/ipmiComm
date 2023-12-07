@@ -1,78 +1,92 @@
+# .github/workflows/ci-scripts-build.yml for use with EPICS Base ci-scripts
+# (see: https://github.com/epics-base/ci-scripts)
+
+# This is YAML - indentation levels are crucial
+
+# Set the 'name:' properties to values that work for you (MYMODULE)
+
 name: C/C++ CI
 
+# Trigger on pushes and PRs to any branch
 on:
   push:
     branches:
       - master
       - actions-dev
   pull_request:
-    branches: 
+    branches:
       - master
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+env:
+  SETUP_PATH: .ci-local:.ci
+  # For the sequencer on Linux/Windows/MacOS
+  APT: re2c
+  CHOCO: re2c
+  BREW: re2c
+  MODULES: "asyn"
+  ASYN: master
 
+jobs:
+  build-base:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    # Set environment variables from matrix parameters
+    env:
+      CMP: ${{ matrix.cmp }}
+      BCFG: ${{ matrix.configuration }}
+      WINE: ${{ matrix.wine }}
+      RTEMS: ${{ matrix.rtems }}
+      RTEMS_TARGET: ${{ matrix.rtems_target }}
+      EXTRA: ${{ matrix.extra }}
+      TEST: ${{ matrix.test }}
+      TIRPC: YES
     strategy:
       fail-fast: false
       matrix:
-        epics_base: [R3.15.5, R3.15.8, R7.0.3.1, R7.0.4.1]
-        asyn: [R4-32, R4-39, R4-41]
-
+        # Job names also name artifacts, character limitations apply
+        # For a list of software/compiler versions, see: https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md
+        include:
+          - os: ubuntu-latest
+            cmp: gcc
+            configuration: static
+            name: "Ubuntu 22.04, GCC 13 (static)"
+            extra: "BUILD_IOCS=YES"
+          - os: ubuntu-latest
+            cmp: gcc
+            configuration: default
+            name: "Ubuntu 22.04, GCC 13"
+            extra: "BUILD_IOCS=YES"
+          - os: ubuntu-latest
+            cmp: clang
+            configuration: static
+            name: "Ubuntu 22.04, Clang 15 (static)"
+            extra: "BUILD_IOCS=YES"
+          - os: ubuntu-latest
+            cmp: clang
+            configuration: default
+            name: "Ubuntu 22.04, Clang 15"
+            extra: "BUILD_IOCS=YES"
     steps:
-    - name: EPICS base checkout
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
       with:
-        repository: epics-base/epics-base
-        ref: ${{ matrix.epics_base }}
-        submodules: recursive
-        path: base
-
-    - name: List workspace with base
-      run: ls ${{ github.workspace }}
-
-    - name: make epics-base
+        submodules: true
+    - name: Install Dependencies
       run: |
-        cd base
-        make
-
-    - name: asyn checkout
-      uses: actions/checkout@v2
+        sudo apt-get update
+        sudo apt-get install -y libtirpc-dev
+    - name: Automatic core dumper analysis
+      uses: mdavidsaver/ci-core-dumper@master
+    - name: Prepare and compile dependencies
+      run: python .ci/cue.py prepare
+    - name: Build main module
+      run: python .ci/cue.py build
+    - name: Run main module tests
+      run: python .ci/cue.py test
+    - name: Upload tapfiles Artifact
+      uses: actions/upload-artifact@v2
       with:
-        repository: epics-modules/asyn
-        ref: ${{ matrix.asyn }}
-        path: modules/asyn
+        name: tapfiles ${{ matrix.name }}
+        path: '**/O.*/*.tap'
+    - name: Collect and show test results
+      run: python .ci/cue.py test-results
 
-    - name: Update asyn config file
-      run: |
-        cd modules/asyn/configure
-        sed -i 's/EPICS_BASE=/#EPICS_BASE=/g' RELEASE
-        sed -i "/EPICS_BASE=/a EPICS_BASE=$EPICS_BASE" RELEASE
-        sed -i 's/IPAC=/#IPAC=/g' RELEASE
-        sed -i 's/SNCSEQ=/#SNCSEQ=/g' RELEASE
-        cat RELEASE
-        cd ../../..
-      env:
-        EPICS_BASE: ${{ github.workspace }}/base
-
-    - name: make asyn
-      run: |
-        cd modules/asyn
-        make
-
-    - name: ipmiComm checkout
-      uses: actions/checkout@v2
-      with:
-        path: ipmiComm
-
-    - name: List the workspace contents
-      run: find ${{ github.workspace }} -maxdepth 2 -mindepth 2 -type d
-
-    - name: make ipmiComm
-      run: |
-        cd ipmiComm
-        sed -i 's/ASYN_MODULE_VERSION=/#ASYN_MODULE_VERSION=/g' configure/RELEASE.local
-        make
-      env:
-        EPICS_SITE_TOP: ${{ github.workspace }}
-        EPICS_MODULES: ${{ github.workspace }}/modules
