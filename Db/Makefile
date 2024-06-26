@@ -58,7 +58,7 @@ include $(TOP)/configure/RULES
 #----------------------------------------
 #  ADD RULES AFTER THIS LINE
 #
-USR_DBFLAGS = -I$(COMMON_DIR)
+USR_DBFLAGS += -I$(COMMON_DIR)
 
 # End of file
 
